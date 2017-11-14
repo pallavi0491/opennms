@@ -36,12 +36,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import javax.annotation.PostConstruct;
-
 import org.opennms.core.utils.InetAddressUtils;
 import org.opennms.netmgt.dao.api.InterfaceToNodeCache;
 import org.opennms.netmgt.dao.api.NodeDao;
-import org.opennms.netmgt.flows.api.FlowRepositoryProvider;
+import org.opennms.netmgt.flows.api.FlowRepository;
 import org.opennms.netmgt.flows.api.NetflowDocument;
 import org.opennms.netmgt.flows.api.NodeInfo;
 import org.opennms.netmgt.model.OnmsNode;
@@ -52,8 +50,6 @@ import org.opennms.netmgt.telemetry.adapters.netflow.v5.NetflowPacket;
 import org.opennms.netmgt.telemetry.config.api.Protocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.support.TransactionOperations;
 
 import com.codahale.metrics.Meter;
@@ -94,21 +90,15 @@ public class Netflow5Adapter implements Adapter {
 
     private static final Logger LOG = LoggerFactory.getLogger(Netflow5Adapter.class);
 
-    @Autowired
-    @Qualifier("flowAdapterMetricRegistry")
     private MetricRegistry metricRegistry;
 
-    @Autowired
     private InterfaceToNodeCache interfaceToNodeCache;
 
-    @Autowired
     private NodeDao nodeDao;
 
-    @Autowired
     private TransactionOperations transactionOperations;
 
-    @Autowired
-    private FlowRepositoryProvider provider;
+    private FlowRepository flowRepository;
 
     private final Netflow5Converter converter = new Netflow5Converter();
 
@@ -118,7 +108,6 @@ public class Netflow5Adapter implements Adapter {
     // Caches NodeInfo data
     private LoadingCache<NodeInfoKey, Optional<NodeInfo>> nodeInfoCache;
 
-    @PostConstruct
     public void init() {
         meter = metricRegistry.meter("persistence");
 
@@ -132,6 +121,13 @@ public class Netflow5Adapter implements Adapter {
                         return getNodeInfo(key.location, key.ipAddress);
                     }
                 });
+
+        // Verify initialized
+        Objects.requireNonNull(metricRegistry);
+        Objects.requireNonNull(interfaceToNodeCache);
+        Objects.requireNonNull(nodeDao);
+        Objects.requireNonNull(transactionOperations);
+        Objects.requireNonNull(flowRepository);
     }
 
     @Override
@@ -159,7 +155,27 @@ public class Netflow5Adapter implements Adapter {
             }
         }
     }
-    
+
+    public void setMetricRegistry(MetricRegistry metricRegistry) {
+        this.metricRegistry = metricRegistry;
+    }
+
+    public void setInterfaceToNodeCache(InterfaceToNodeCache interfaceToNodeCache) {
+        this.interfaceToNodeCache = interfaceToNodeCache;
+    }
+
+    public void setNodeDao(NodeDao nodeDao) {
+        this.nodeDao = nodeDao;
+    }
+
+    public void setTransactionOperations(TransactionOperations transactionOperations) {
+        this.transactionOperations = transactionOperations;
+    }
+
+    public void setFlowRepository(FlowRepository flowRepository) {
+        this.flowRepository = flowRepository;
+    }
+
     private NetflowPacket parse(TelemetryMessage message) {
         // Create NetflowPacket which delegates all calls to the byte array
         final NetflowPacket flowPacket = new NetflowPacket(message.getByteArray());
@@ -257,7 +273,7 @@ public class Netflow5Adapter implements Adapter {
             return;
         }
 
-        provider.getFlowRepository().save(documents);
+        flowRepository.save(documents);
         meter.mark(documents.size());
     }
 }
