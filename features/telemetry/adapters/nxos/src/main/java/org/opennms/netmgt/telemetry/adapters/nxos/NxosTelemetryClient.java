@@ -64,7 +64,7 @@ public class NxosTelemetryClient {
     
     public static void main(String... args) throws IOException {
         // Making assumption that NodeId is IpAddress
-        TelemetryBis.Telemetry nxosMsg = buildMessage("192.168.2.1");
+        TelemetryBis.Telemetry nxosMsg = buildMessage("192.168.1.1");
         byte[] nxosMsgBytes = nxosMsg.toByteArray();
 
         InetAddress address = InetAddressUtils.getLocalHostAddress();
